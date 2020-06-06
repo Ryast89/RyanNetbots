@@ -16,7 +16,7 @@ from netbots_log import setLogLevel
 import netbots_ipc as nbipc
 import netbots_math as nbmath
 
-robotName = "RyanBot v1"
+robotName = "RyanBot v5"
 
 
 def play(botSocket, srvConf):
@@ -71,43 +71,38 @@ def play(botSocket, srvConf):
                         getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
         
                         # find the closest corner:
-                        if getLocationReply['x'] < srvConf['arenaSize'] / 2:
-                            cornerX = 0
-                        else:
-                            cornerX = srvConf['arenaSize']
-        
-                        if getLocationReply['y'] < srvConf['arenaSize'] / 2:
-                            cornerY = 0
-                        else:
-                            cornerY = srvConf['arenaSize']
+                        centerX = srvConf['arenaSize']/2
+                        centerY = centerX
         
                         # find the angle from where we are to the closest corner
-                        radians = nbmath.angle(getLocationReply['x'], getLocationReply['y'], cornerX, cornerY)
+                        radians = nbmath.angle(getLocationReply['x'], getLocationReply['y'], centerX, centerY)
         
                         # Turn in a new direction
-                        if radians >= math.pi:
-                            botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': radians - math.pi})
-                        else:
-                            botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': radians + math.pi})
-        
+                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': radians})
                         # Request we start accelerating to max speed
-                        botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 100})
+                        botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 50})
         
                         # log some useful information.
                         degrees = str(int(round(math.degrees(radians))))
                         log("Requested to go " + degrees + " degress at max speed.", "INFO")
-                
+                    else:
+                        moveDirection = lastMin + math.pi * 2 / 16
+                        if moveDirection is math.pi*2:
+                            moveDirection = moveDirection - 0.0000001
+                        elif moveDirection is 0:
+                            moveDirection = moveDirection + 0.0000001
+                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': moveDirection})
+                        botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 60})
                 # find out if we already have a shell in the air. We need to wait for it to explode before
                 # we fire another shell. If we don't then the first shell will never explode!
                 getCanonReply = botSocket.sendRecvMessage({'type': 'getCanonRequest'})
                 if not getCanonReply['shellInProgress']:
                     # we are ready to shoot again!
-                    botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 0})
                     currentMode = "scan"
                     
 
             if currentMode == "scan":
-                if lastMin != 0 and lastMax != 0:
+                if lastMin != 0 or lastMax != 0:
                     scanReply = botSocket.sendRecvMessage(
                         {'type': 'scanRequest', 'startRadians': lastMin, 'endRadians': lastMax})
                     if scanReply['distance'] != 0:
@@ -126,8 +121,15 @@ def play(botSocket, srvConf):
                     scanCenter = (maxScanSpace + minScanSpace) / 2
                     scanReply = botSocket.sendRecvMessage(
                         {'type': 'scanRequest', 'startRadians': minScanSpace, 'endRadians': scanCenter})
+                    moveDirection = (minScanSpace + scanCenter) / 2
+                    if moveDirection >= math.pi:
+                        moveDirection = moveDirection - math.pi
+                    else:
+                        moveDirection = moveDirection + math.pi
+                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': moveDirection})
+                    botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 60})
                     if scanReply['distance'] != 0:
-                        if scanSlices != 32:
+                        if scanSlices != 16:
                             scanSlices = scanSlices * 2
                             maxScanSpace = scanCenter
                         else:
@@ -144,7 +146,7 @@ def play(botSocket, srvConf):
                             minScanSpace = 0
                             currentMode = "wait"
                     else:
-                        if scanSlices != 32:
+                        if scanSlices != 16:
                             scanSlices = scanSlices * 2
                             minScanSpace = scanCenter
                         else:
