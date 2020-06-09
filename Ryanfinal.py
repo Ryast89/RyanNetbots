@@ -16,7 +16,7 @@ from netbots_log import setLogLevel
 import netbots_ipc as nbipc
 import netbots_math as nbmath
 
-robotName = "RyanBot v5"
+robotName = "RyanBot v6"
 
 
 def play(botSocket, srvConf):
@@ -39,136 +39,128 @@ def play(botSocket, srvConf):
         if getInfoReply['gameNumber'] != gameNumber:
             # A new game has started. Record new gameNumber and reset any variables back to their initial state
             gameNumber = getInfoReply['gameNumber']
-            log("Game " + str(gameNumber) + " has started. Points so far = " + str(getInfoReply['points']))
 
             # start every new game in scan mode. No point waiting if we know we have not fired our canon yet.
             currentMode = "scan"
-
-            # lighthouse will scan the area in this many slices (think pizza slices with this bot in the middle)
+            
+            #Define other variables
+            isAtBottom = False
+            moveRight = True
+            
+            lastLocation = []
+            
             scanSlices = 1
-
-            # This is the radians of where the next scan will be
-            nextScanSlice = 0
-
-            # Each scan will be this wide in radians (note, math.pi*2 radians is the same as 360 Degrees)
-            scanSliceWidth = math.pi * 2 / scanSlices
-            lastMin = 0
-            lastMax = 0
-            lastFireDirection = 0
+            
+            scanSliceWidth = 0
+            
+            minScanSpace = 0
             
             maxScanSpace = math.pi * 2
-            minScanSpace = 0
-
+            
+            nextScanSlice = 0
+            
+            waitSteps = 0
+            scanCenter = 0
+            messagesPerStep = 2
+            waitStepsMove = 0
+            movementDirection = "none"
+            lastMovementDirection = "left"
         try:
-            if currentMode == "wait":
-                # get location data from server
-                if lastMin != 0 and lastMax != 0:
-                    scanReply = botSocket.sendRecvMessage(
-                        {'type': 'scanRequest', 'startRadians': lastMin, 'endRadians': lastMax})
-                    if scanReply['distance'] == 0:
-                        lastMin = 0
-                        lastMax = 0
-                        getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
-        
-                        # find the closest corner:
-                        centerX = srvConf['arenaSize']/2
-                        centerY = centerX
-        
-                        # find the angle from where we are to the closest corner
-                        radians = nbmath.angle(getLocationReply['x'], getLocationReply['y'], centerX, centerY)
-        
-                        # Turn in a new direction
-                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': radians})
-                        # Request we start accelerating to max speed
-                        botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 50})
-        
-                        # log some useful information.
-                        degrees = str(int(round(math.degrees(radians))))
-                        log("Requested to go " + degrees + " degress at max speed.", "INFO")
-                    else:
-                        moveDirection = lastMin + math.pi * 2 / 16
-                        if moveDirection is math.pi*2:
-                            moveDirection = moveDirection - 0.0000001
-                        elif moveDirection is 0:
-                            moveDirection = moveDirection + 0.0000001
-                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': moveDirection})
-                        botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 60})
-                # find out if we already have a shell in the air. We need to wait for it to explode before
-                # we fire another shell. If we don't then the first shell will never explode!
-                getCanonReply = botSocket.sendRecvMessage({'type': 'getCanonRequest'})
-                if not getCanonReply['shellInProgress']:
-                    # we are ready to shoot again!
-                    currentMode = "scan"
-                    
-
-            if currentMode == "scan":
-                if lastMin != 0 or lastMax != 0:
-                    scanReply = botSocket.sendRecvMessage(
-                        {'type': 'scanRequest', 'startRadians': lastMin, 'endRadians': lastMax})
-                    if scanReply['distance'] != 0:
-                        # fire down the center of the slice we just scanned.
-                        botSocket.sendRecvMessage(
-                           {'type': 'fireCanonRequest', 'direction': lastFireDirection, 'distance': scanReply['distance']})
-                        # make sure don't try and shoot again until this shell has exploded.
-                        currentMode = "wait"
-                    else:
-                        lastMin = 0
-                        lastMax = 0
+            if isAtBottom == False:
+                lastMovementDirection = movementDirection
+                getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
+                if getLocationReply['x'] < srvConf['arenaSize']/2:
+                    movementDirection = "right"
                 else:
-                    scanSliceWidth = math.pi * 2 / scanSlices
-                    scanRadStart = nextScanSlice * scanSliceWidth
-                    scanRadEnd = min(scanRadStart + scanSliceWidth, math.pi * 2)
-                    scanCenter = (maxScanSpace + minScanSpace) / 2
-                    scanReply = botSocket.sendRecvMessage(
-                        {'type': 'scanRequest', 'startRadians': minScanSpace, 'endRadians': scanCenter})
-                    moveDirection = (minScanSpace + scanCenter) / 2
-                    if moveDirection >= math.pi:
-                        moveDirection = moveDirection - math.pi
+                    movementDirection = "left"
+                
+                if lastMovementDirection != movementDirection:
+                    if movementDirection == "left":
+                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': math.pi * 5 / 4})
+                    if movementDirection == "right":
+                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': math.pi * 7 / 4})
+                if getLocationReply == lastLocation:
+                    if getLocationReply['y'] < 80:
+                        isAtBottom = True
+                        messagesPerStep = 1
+                        botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 0})
+                        if waitSteps != 0:
+                            waitSteps = waitSteps - 1
                     else:
-                        moveDirection = moveDirection + math.pi
-                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': moveDirection})
-                    botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 60})
-                    if scanReply['distance'] != 0:
-                        if scanSlices != 16:
-                            scanSlices = scanSlices * 2
-                            maxScanSpace = scanCenter
+                        botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 70})
+                        if waitSteps != 0:
+                            waitSteps = waitSteps - 1
+                lastLocation = getLocationReply
+            else:
+                if moveRight == True and isAtBottom == True:    
+                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': 0})
+                    botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 100})
+                    moveRight = False
+            if currentMode == "wait":
+                waitSteps = waitSteps - messagesPerStep
+                if waitSteps <= 0:
+                    currentMode = "scanExpand"
+            
+            if currentMode == "scanExpand":
+                currentSlice = math.floor(scanCenter / 2 / math.pi * scanSlices)
+                scanSliceWidth = math.pi * 2 / scanSlices
+                minScanSpace = currentSlice / scanSlices * math.pi * 2 
+                maxScanSpace = (currentSlice + 1) / scanSlices * math.pi * 2
+                scanCenter = (maxScanSpace + minScanSpace) / 2
+                scanReply = botSocket.sendRecvMessage(
+                    {'type': 'scanRequest', 'startRadians': minScanSpace, 'endRadians': scanCenter})
+                if scanReply['distance'] == 0:
+                    scanSlices = scanSlices/2
+                else:
+                    currentMode = "scan"
+                
+            if currentMode == "scan":
+                scanSliceWidth = math.pi * 2 / scanSlices
+                scanCenter = (maxScanSpace + minScanSpace) / 2
+                scanReply = botSocket.sendRecvMessage(
+                    {'type': 'scanRequest', 'startRadians': minScanSpace, 'endRadians': scanCenter})
+                if scanReply['distance'] != 0:
+                    if scanSlices < 32:
+                        scanSlices = scanSlices * 2
+                        maxScanSpace = scanCenter
+                    else:
+                        # fire down the center of the slice we just scanned.
+                        fireDirection = minScanSpace + scanSliceWidth / 2
+                        botSocket.sendRecvMessage(
+                           {'type': 'fireCanonRequest', 'direction': fireDirection, 'distance': scanReply['distance']})
+                        # make sure don't try and shoot again until this shell has exploded.
+                        lastMin = minScanSpace
+                        lastMax = scanCenter
+                        lastFireDirection = fireDirection
+                        maxScanSpace = math.pi * 2
+                        minScanSpace = 0
+                        currentMode = "wait"
+                        waitSteps = math.ceil(scanReply['distance']/40)
+                else:
+                    if scanSlices < 32:
+                        scanSlices = scanSlices * 2
+                        minScanSpace = scanCenter
+                    else:
+                        # fire down the center of the slice we just scanned.
+                        fireDirection = maxScanSpace - scanSliceWidth / 2
+                        scanReply2 = botSocket.sendRecvMessage(
+                            {'type': 'scanRequest', 'startRadians': scanCenter, 'endRadians': maxScanSpace})
+                        if scanReply2['distance'] == 0:
+                            currentMode = "wait"
+                            maxScanSpace = math.pi * 2
+                            minScanSpace = 0
                         else:
-                            scanSlices = 1
-                            # fire down the center of the slice we just scanned.
-                            fireDirection = minScanSpace + scanSliceWidth / 2
                             botSocket.sendRecvMessage(
-                               {'type': 'fireCanonRequest', 'direction': fireDirection, 'distance': scanReply['distance']})
+                                {'type': 'fireCanonRequest', 'direction': fireDirection, 'distance': scanReply2['distance']})
                             # make sure don't try and shoot again until this shell has exploded.
-                            lastMin = minScanSpace
-                            lastMax = scanCenter
+                            lastMin = scanCenter
+                            lastMax = maxScanSpace
                             lastFireDirection = fireDirection
                             maxScanSpace = math.pi * 2
                             minScanSpace = 0
                             currentMode = "wait"
-                    else:
-                        if scanSlices != 16:
-                            scanSlices = scanSlices * 2
-                            minScanSpace = scanCenter
-                        else:
-                            # fire down the center of the slice we just scanned.
-                            scanSlices = 1
-                            fireDirection = maxScanSpace - scanSliceWidth / 2
-                            scanReply2 = botSocket.sendRecvMessage(
-                                {'type': 'scanRequest', 'startRadians': scanCenter, 'endRadians': maxScanSpace})
-                            if scanReply2['distance'] == 0:
-                                currentMode = "wait"
-                            else:
-                                botSocket.sendRecvMessage(
-                                    {'type': 'fireCanonRequest', 'direction': fireDirection, 'distance': scanReply2['distance']})
-                                # make sure don't try and shoot again until this shell has exploded.
-                                lastMin = scanCenter
-                                lastMax = maxScanSpace
-                                lastFireDirection = fireDirection
-                            maxScanSpace = math.pi * 2
-                            minScanSpace = 0
-                            currentMode = "wait"
-                    
-
+                            waitSteps = math.ceil(scanReply2['distance']/40)
+                            
         except nbipc.NetBotSocketException as e:
             # Consider this a warning here. It may simply be that a request returned
             # an Error reply because our health == 0 since we last checked. We can
