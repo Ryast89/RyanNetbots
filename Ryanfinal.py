@@ -44,10 +44,6 @@ def play(botSocket, srvConf):
             currentMode = "scan"
             
             #Define other variables
-            isAtBottom = False
-            moveRight = True
-            
-            lastLocation = []
             
             scanSlices = 1
             
@@ -56,16 +52,29 @@ def play(botSocket, srvConf):
             minScanSpace = 0
             
             maxScanSpace = math.pi * 2
+            timer = 0
             
-            nextScanSlice = 0
-            
-            waitSteps = 0
-            scanCenter = 0
-            messagesPerStep = 2
-            waitStepsMove = 0
-            movementDirection = "none"
-            lastMovementDirection = "left"
+            currentDirection = 0
         try:
+            if currentDirection == 0:
+                getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
+                centerX = srvConf['arenaSize']/2
+                
+                if getLocationReply['x'] <= centerX and getLocationReply['y'] <= centerX:
+                    currentDirection = math.pi * 1.5
+                if getLocationReply['x'] <= centerX and getLocationReply['y'] > centerX:
+                    currentDirection = math.pi
+                if getLocationReply['x'] > centerX and getLocationReply['y'] <= centerX:
+                    currentDirection = math.pi * 2
+                if getLocationReply['x'] > centerX and getLocationReply['y'] < centerX:
+                    currentDirection = math.pi * 0.5
+                 
+            timer = timer - 1
+            if timer <= 0:
+                timer = 30
+                currentDirection = currentDirection + math.pi*0.25
+                botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(currentDirection)})
+                botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 80})
             if currentMode == "wait":
                 
                 getCanonReply = botSocket.sendRecvMessage({'type': 'getCanonRequest'})
@@ -79,14 +88,12 @@ def play(botSocket, srvConf):
                 #   currentMode = "scanExpand"
             
             if currentMode == "scanExpand":
-                currentSlice = math.floor(scanCenter / 2 / math.pi * scanSlices)
                 scanSliceWidth = math.pi * 2 / scanSlices
-                minScanSpace = currentSlice / scanSlices * math.pi * 2 
-                maxScanSpace = (currentSlice + 1) / scanSlices * math.pi * 2
-                scanCenter = (maxScanSpace + minScanSpace) / 2
                 scanReply = botSocket.sendRecvMessage(
-                    {'type': 'scanRequest', 'startRadians': minScanSpace, 'endRadians': scanCenter})
+                    {'type': 'scanRequest', 'startRadians': nbmath.normalizeAngle(minScanSpace), 'endRadians': nbmath.normalizeAngle(maxScanSpace)})
                 if scanReply['distance'] == 0:
+                    maxScanSpace = maxScanSpace + scanSliceWidth/2
+                    minScanSpace = minScanSpace - scanSliceWidth/2
                     scanSlices = scanSlices/2
                 else:
                     if scanSlices != 32:
@@ -94,13 +101,8 @@ def play(botSocket, srvConf):
                     else:
                         fireDirection = minScanSpace + scanSliceWidth / 2
                         botSocket.sendRecvMessage(
-                           {'type': 'fireCanonRequest', 'direction': fireDirection, 'distance': scanReply['distance']})
+                           {'type': 'fireCanonRequest', 'direction': nbmath.normalizeAngle(fireDirection), 'distance': scanReply['distance']})
                         # make sure don't try and shoot again until this shell has exploded.
-                        lastMin = minScanSpace
-                        lastMax = scanCenter
-                        lastFireDirection = fireDirection
-                        maxScanSpace = math.pi * 2
-                        minScanSpace = 0
                         currentMode = "wait"
                         waitSteps = math.ceil(scanReply['distance']/40)
                 
@@ -108,7 +110,7 @@ def play(botSocket, srvConf):
                 scanSliceWidth = math.pi * 2 / scanSlices
                 scanCenter = (maxScanSpace + minScanSpace) / 2
                 scanReply = botSocket.sendRecvMessage(
-                    {'type': 'scanRequest', 'startRadians': minScanSpace, 'endRadians': scanCenter})
+                    {'type': 'scanRequest', 'startRadians': nbmath.normalizeAngle(minScanSpace), 'endRadians': nbmath.normalizeAngle(scanCenter)})
                 if scanReply['distance'] != 0:
                     if scanSlices < 32:
                         scanSlices = scanSlices * 2
@@ -117,15 +119,11 @@ def play(botSocket, srvConf):
                         # fire down the center of the slice we just scanned.
                         fireDirection = minScanSpace + scanSliceWidth / 2
                         botSocket.sendRecvMessage(
-                           {'type': 'fireCanonRequest', 'direction': fireDirection, 'distance': scanReply['distance']})
+                           {'type': 'fireCanonRequest', 'direction': nbmath.normalizeAngle(fireDirection), 'distance': scanReply['distance']})
                         # make sure don't try and shoot again until this shell has exploded.
-                        lastMin = minScanSpace
-                        lastMax = scanCenter
-                        lastFireDirection = fireDirection
-                        maxScanSpace = math.pi * 2
-                        minScanSpace = 0
                         currentMode = "wait"
                         waitSteps = math.ceil(scanReply['distance']/40)
+                        maxScanSpace = scanCenter
                 else:
                     if scanSlices < 32:
                         scanSlices = scanSlices * 2
@@ -134,20 +132,14 @@ def play(botSocket, srvConf):
                         # fire down the center of the slice we just scanned.
                         fireDirection = maxScanSpace - scanSliceWidth / 2
                         scanReply2 = botSocket.sendRecvMessage(
-                            {'type': 'scanRequest', 'startRadians': scanCenter, 'endRadians': maxScanSpace})
+                            {'type': 'scanRequest', 'startRadians': nbmath.normalizeAngle(scanCenter), 'endRadians': nbmath.normalizeAngle(maxScanSpace)})
                         if scanReply2['distance'] == 0:
-                            currentMode = "wait"
-                            maxScanSpace = math.pi * 2
-                            minScanSpace = 0
+                            currentMode = "scanExpand"
                         else:
                             botSocket.sendRecvMessage(
-                                {'type': 'fireCanonRequest', 'direction': fireDirection, 'distance': scanReply2['distance']})
+                                {'type': 'fireCanonRequest', 'direction': nbmath.normalizeAngle(fireDirection), 'distance': scanReply2['distance']})
                             # make sure don't try and shoot again until this shell has exploded.
-                            lastMin = scanCenter
-                            lastMax = maxScanSpace
-                            lastFireDirection = fireDirection
-                            maxScanSpace = math.pi * 2
-                            minScanSpace = 0
+                            minScanSpace = scanCenter
                             currentMode = "wait"
                             waitSteps = math.ceil(scanReply2['distance']/40)
                             
@@ -156,6 +148,20 @@ def play(botSocket, srvConf):
             # an Error reply because our health == 0 since we last checked. We can
             # continue until the next game starts.
             log(str(e), "WARNING")
+            
+            #Assume that health is 0. Reset all variables.
+            currentMode = "scan"
+            
+            timer = 0
+            
+            currentDirection = 0
+            scanSlices = 1
+            
+            scanSliceWidth = 0
+            
+            minScanSpace = 0
+            
+            maxScanSpace = math.pi * 2
             continue
 
 ##################################################################
