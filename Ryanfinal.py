@@ -70,7 +70,7 @@ def play(botSocket, srvConf):
                     currentDirection = math.pi * 0.5
                  
             timer = timer - 1
-            if timer <= 0:
+            if timer <= 0 and currentMode == "wait":
                 timer = 25
                 currentDirection = currentDirection + math.pi*0.25
                 botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(currentDirection)})
