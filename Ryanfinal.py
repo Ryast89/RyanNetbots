@@ -71,7 +71,7 @@ def play(botSocket, srvConf):
                  
             timer = timer - 1
             if timer <= 0 and currentMode == "wait":
-                timer = 25
+                timer = 30
                 currentDirection = currentDirection + math.pi*0.25
                 botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(currentDirection)})
                 botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 80})
