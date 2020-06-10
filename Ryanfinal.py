@@ -71,10 +71,10 @@ def play(botSocket, srvConf):
                  
             timer = timer - 1
             if timer <= 0:
-                timer = 10
+                timer = 20
                 currentDirection = currentDirection + math.pi*0.25
                 botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(currentDirection)})
-                botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 100})
+                botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 85})
             if currentMode == "wait":
                 
                 getCanonReply = botSocket.sendRecvMessage({'type': 'getCanonRequest'})
