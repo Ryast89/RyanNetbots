@@ -16,7 +16,7 @@ from netbots_log import setLogLevel
 import netbots_ipc as nbipc
 import netbots_math as nbmath
 
-robotName = "RyanBot v6"
+robotName = "RyanBot v7"
 
 
 def play(botSocket, srvConf):
