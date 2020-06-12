@@ -106,6 +106,30 @@ def play(botSocket, srvConf):
                             currentTime = time.perf_counter()
                             guessSteps = round((currentTime - startTime) / srvConf['stepSec'])
                             fireStep = math.ceil(max(scanReply['distance'], 75)/40) + guessSteps
+                            botLocation = getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
+                            centerX = srvConf['arenaSize']/2
+                
+                            if getLocationReply['x'] <= centerX and getLocationReply['y'] <= centerX:
+                                if getLocationReply['x'] < getLocationReply['y']:
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0)})
+                                else:
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0.5 * math.pi)})
+                            if getLocationReply['x'] <= centerX and getLocationReply['y'] > centerX:
+                                if getLocationReply['x'] < (1000 - getLocationReply['y']):
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0)})
+                                else:
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(1.5 * math.pi)})
+                            if getLocationReply['x'] > centerX and getLocationReply['y'] <= centerX:
+                                if (1000 - getLocationReply['x']) < getLocationReply['y']:
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(math.pi)})
+                                else:
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0.5 * math.pi)})
+                            if getLocationReply['x'] > centerX and getLocationReply['y'] > centerX:
+                                if (1000 - getLocationReply['x']) < (getLocationReply['y']):
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(math.pi)})
+                                else:
+                                    botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(1.5 * math.pi)})
+                            botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 80})
                         currentMode = "scanExpand"
                         maxScanSpace = scanCenter
                 else:
@@ -128,6 +152,30 @@ def play(botSocket, srvConf):
                                 currentTime = time.perf_counter()
                                 guessSteps = round((currentTime - startTime) / srvConf['stepSec'])
                                 fireStep = math.ceil(max(scanReply2['distance'], 75)/40) + guessSteps
+                                botLocation = getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
+                                centerX = srvConf['arenaSize']/2
+                    
+                                if getLocationReply['x'] <= centerX and getLocationReply['y'] <= centerX:
+                                    if getLocationReply['x'] < getLocationReply['y']:
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0)})
+                                    else:
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0.5 * math.pi)})
+                                if getLocationReply['x'] <= centerX and getLocationReply['y'] > centerX:
+                                    if getLocationReply['x'] < (1000 - getLocationReply['y']):
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0)})
+                                    else:
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(1.5 * math.pi)})
+                                if getLocationReply['x'] > centerX and getLocationReply['y'] <= centerX:
+                                    if (1000 - getLocationReply['x']) < getLocationReply['y']:
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(math.pi)})
+                                    else:
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(0.5 * math.pi)})
+                                if getLocationReply['x'] > centerX and getLocationReply['y'] > centerX:
+                                    if (1000 - getLocationReply['x']) < (getLocationReply['y']):
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(math.pi)})
+                                    else:
+                                        botSocket.sendRecvMessage({'type': 'setDirectionRequest', 'requestedDirection': nbmath.normalizeAngle(1.5 * math.pi)})
+                                botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': 80})
                             minScanSpace = scanCenter
                             currentMode = "scanExpand"
                             
