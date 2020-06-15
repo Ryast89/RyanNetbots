@@ -16,7 +16,7 @@ from netbots_log import setLogLevel
 import netbots_ipc as nbipc
 import netbots_math as nbmath
 
-robotName = "RyanBot v8.1"
+robotName = "RyanBot v9"
 def move(botSocket, srvConf, fireDirection):
     getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
                         
